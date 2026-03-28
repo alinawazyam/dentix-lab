@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Edit, Trash2, RefreshCw, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Plus, Edit, Trash2, RefreshCw, X, Loader2, Camera } from 'lucide-react';
 import { useAdminData } from '@/lib/admin-context';
 import { useSettings } from '@/lib/settings-store';
 import { toast } from 'sonner';
@@ -32,6 +32,8 @@ export function AdminServices() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<ServiceForm>({ 
     name: '', 
     price: '', 
@@ -40,6 +42,37 @@ export function AdminServices() {
     description: '',
     image: ''
   });
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+      formDataUpload.append('type', 'service');
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formDataUpload,
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setFormData(prev => ({ ...prev, image: data.url }));
+        toast.success('Image uploaded!');
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Failed to upload image');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!formData.name || !formData.price) {
@@ -213,7 +246,7 @@ export function AdminServices() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={closeModal}>
-          <div className="bg-[#2D0A05] rounded-xl p-6 w-full max-w-md border border-white/10" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#2D0A05] rounded-xl p-6 w-full max-w-md border border-white/10 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-white">
                 {editingId ? 'Edit Service' : 'Add New Service'}
@@ -221,6 +254,51 @@ export function AdminServices() {
               <button onClick={closeModal} className="text-white/50 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Image Upload */}
+            <div className="mb-4">
+              <label className="block text-xs text-white/70 mb-2">Service Image</label>
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+                  {formData.image ? (
+                    <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <Camera className="w-8 h-8 text-white/30" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <Button 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    type="button"
+                    className="btn-secondary text-sm"
+                  >
+                    {uploading ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Uploading...
+                      </span>
+                    ) : (
+                      'Upload Image'
+                    )}
+                  </Button>
+                  {formData.image && (
+                    <button 
+                      onClick={() => setFormData(prev => ({ ...prev, image: '' }))}
+                      className="block text-xs text-red-400 mt-2 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -278,16 +356,6 @@ export function AdminServices() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={2}
                   className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-[#FF8C42]/50 focus:outline-none resize-none" 
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-white/70 mb-1">Image URL (optional)</label>
-                <input 
-                  placeholder="https://..." 
-                  value={formData.image} 
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })} 
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-[#FF8C42]/50 focus:outline-none" 
                 />
               </div>
             </div>

@@ -134,7 +134,9 @@ export function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   // Load settings from database on mount
   useEffect(() => {
@@ -204,6 +206,38 @@ export function AdminSettings() {
       toast.error('Failed to upload logo');
     } finally {
       setUploadingLogo(false);
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingVideo(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'video');
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        updateSetting('heroVideoUrl', data.url);
+        updateSetting('heroVideoEnabled', true);
+        toast.success('Video uploaded successfully!');
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      console.error('Error uploading video:', error);
+      toast.error('Failed to upload video');
+    } finally {
+      setUploadingVideo(false);
     }
   };
 
@@ -572,7 +606,7 @@ export function AdminSettings() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div>
             <h4 className="font-medium text-[#FF8C42]">🎬 Video Background</h4>
-            <p className="text-xs md:text-sm text-white/50">Add a video URL to display in hero section</p>
+            <p className="text-xs md:text-sm text-white/50">Upload a video for hero section background</p>
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -585,8 +619,65 @@ export function AdminSettings() {
           </label>
         </div>
         
-        <div>
-          <label className="block text-sm text-white/70 mb-1">Video URL (YouTube, Vimeo, or MP4)</label>
+        {/* Video Upload */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+            <div className="flex-1">
+              <label className="block text-sm text-white/70 mb-2">Upload Video (MP4, WebM - Max 20MB)</label>
+              <div className="flex gap-2">
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/ogg"
+                  onChange={handleVideoUpload}
+                  className="hidden"
+                />
+                <Button 
+                  onClick={() => videoInputRef.current?.click()}
+                  disabled={uploadingVideo}
+                  className="btn-primary"
+                >
+                  {uploadingVideo ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Uploading...
+                    </span>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" /> Upload Video
+                    </>
+                  )}
+                </Button>
+                {settings.heroVideoUrl && (
+                  <Button 
+                    onClick={() => {
+                      updateSetting('heroVideoUrl', '');
+                      updateSetting('heroVideoEnabled', false);
+                    }}
+                    variant="outline"
+                    className="text-red-400 border-red-400/30 hover:bg-red-400/10"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" /> Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Video Preview */}
+          {settings.heroVideoUrl && (
+            <div className="rounded-lg overflow-hidden bg-black/20">
+              <video 
+                src={settings.heroVideoUrl} 
+                className="w-full h-40 object-cover"
+                muted
+                playsInline
+              />
+            </div>
+          )}
+
+          <div className="text-xs text-white/40">
+            Or paste a video URL (YouTube, Vimeo, or direct MP4 link):
+          </div>
           <Input
             value={settings.heroVideoUrl}
             onChange={(e) => updateSetting('heroVideoUrl', e.target.value)}
