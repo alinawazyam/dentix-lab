@@ -1,0 +1,191 @@
+// Dental Clinic Management System - Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User & Authentication
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  role          Role      @default(PATIENT)
+  name          String?
+  avatar        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  patient       Patient?  @relation(fields: [patientId], references: [id])
+  doctor        Doctor?   @relation(fields: [doctorId], references: [id])
+  patientId     String?   @unique
+  doctorId      String?   @unique
+}
+
+model Patient {
+  id               String           @id @default(cuid())
+  firstName        String
+  lastName         String
+  email            String           @unique
+  phone            String?
+  dateOfBirth      DateTime?
+  address          String?
+  city             String?
+  country          String?
+  emergencyContact String?
+  insuranceProvider String?
+  insuranceNumber  String?
+  medicalHistory   String?
+  allergies        String?
+  notes            String?
+  avatar           String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  user             User?
+  appointments     Appointment[]
+  invoices         Invoice[]
+  documents        Document[]
+}
+
+model Doctor {
+  id              String        @id @default(cuid())
+  firstName       String
+  lastName        String
+  email           String        @unique
+  phone           String?
+  specialization  String
+  bio             String?
+  avatar          String?
+  qualifications  String?
+  experience      Int?
+  rating          Float?        @default(0)
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  user            User?
+  schedules       Schedule[]
+  appointments    Appointment[]
+}
+
+model Schedule {
+  id        String   @id @default(cuid())
+  doctorId  String
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  isActive  Boolean  @default(true)
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+}
+
+model Service {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  description  String?
+  shortDescription String?
+  duration     Int
+  price        Float
+  category     String
+  image        String?
+  icon         String?
+  isActive     Boolean       @default(true)
+  featured     Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  patientId   String
+  doctorId    String
+  serviceId   String
+  dateTime    DateTime
+  duration    Int
+  status      AppointmentStatus @default(PENDING)
+  notes       String?
+  symptoms    String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  patient     Patient           @relation(fields: [patientId], references: [id])
+  doctor      Doctor            @relation(fields: [doctorId], references: [id])
+  service     Service           @relation(fields: [serviceId], references: [id])
+  invoice     Invoice?
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  appointmentId String        @unique
+  patientId     String
+  invoiceNumber String        @unique
+  amount        Float
+  tax           Float         @default(0)
+  discount      Float         @default(0)
+  total         Float
+  status        PaymentStatus @default(PENDING)
+  paidAt        DateTime?
+  dueDate       DateTime?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  appointment   Appointment   @relation(fields: [appointmentId], references: [id])
+  patient       Patient       @relation(fields: [patientId], references: [id])
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  patientId   String
+  name        String
+  type        String
+  url         String
+  description String?
+  uploadedAt  DateTime @default(now())
+  patient     Patient  @relation(fields: [patientId], references: [id])
+}
+
+model Testimonial {
+  id          String   @id @default(cuid())
+  patientName String
+  rating      Int
+  comment     String
+  avatar      String?
+  treatment   String?
+  approved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  DOCTOR
+  RECEPTIONIST
+  PATIENT
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  REFUNDED
+  CANCELLED
+}
